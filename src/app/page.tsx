@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Table, TextInput, Label, Button } from "flowbite-react";
+import { debounce } from "lodash";
 
 type Advocate = {
+  id: number,
   firstName: string,
   lastName: string,
   city: string, 
@@ -15,42 +17,37 @@ type Advocate = {
 
 export default function Home() {
   const [advocates, setAdvocates] = useState<Advocate[]> ([]);
-  const [filteredAdvocates, setFilteredAdvocates] = useState<Advocate[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  useEffect(() => {
-    console.log("fetching advocates...");
-    fetch("/api/advocates").then((response) => {
+  // Fetches data from server with optional search param
+  const fetchData = useCallback((search?: string) => {
+    const url = search ? `/api/advocates?search=${search}` : "/api/advocates";
+    fetch(url).then((response) => {
       response.json().then((jsonResponse) => {
         setAdvocates(jsonResponse.data);
-        setFilteredAdvocates(jsonResponse.data);
       });
     });
   }, []);
 
+  // Debounce fetch function so it won't get called on every keystroke
+  const debouncedFetch = useCallback(debounce(fetchData, 500), []);
+
+  // Initial fetch of all unfiltered advocates
   useEffect(() => {
-    if(!searchTerm?.length) return;
+    fetchData();
+  }, []);
 
-    const searchTermLower = searchTerm.toLowerCase();
+  // When search input changes, call debounced fetch data function to fetch filtered advocates list
+  const handleInputChange = useCallback((newSearchTerm: string) => {
+    setSearchTerm(newSearchTerm);
+    debouncedFetch(newSearchTerm.toLowerCase());
+  }, [setSearchTerm, debouncedFetch]);
 
-    const filteredAdvocates = advocates.filter((advocate) => {
-      return (
-        advocate.firstName.toLowerCase().includes(searchTermLower) ||
-        advocate.lastName.toLowerCase().includes(searchTermLower) ||
-        advocate.city.toLowerCase().includes(searchTermLower) ||
-        advocate.degree.toLowerCase().includes(searchTermLower) ||
-        advocate.specialties.join().toLowerCase().includes(searchTermLower) ||
-        `${advocate.yearsOfExperience}`.includes(searchTermLower)
-      );
-    });
-
-    setFilteredAdvocates(filteredAdvocates);
-  }, [searchTerm]);
-
+  // Reset search - clear search term and refetch unfiltered advocates
   const handleResetSearch = useCallback(() => {
-    setFilteredAdvocates(advocates);
     setSearchTerm('');
-  }, [setFilteredAdvocates, setSearchTerm]);
+    fetchData();
+  }, [setSearchTerm, fetchData]);
 
   return (
     <main style={{ margin: "24px" }}>
@@ -58,7 +55,7 @@ export default function Home() {
       <div className="flex gap-2 my-6 w-[500px]">
         <div className="flex-1">
           <Label htmlFor="search" value="Search" />
-          <TextInput id="search" type="text" sizing="sm" placeholder="Enter search term" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <TextInput id="search" type="text" sizing="sm" placeholder="Enter search term" value={searchTerm} onChange={(e) => handleInputChange(e.target.value)} />
         </div>
         <Button size="xs" onClick={handleResetSearch} className="items-center self-end h-[34px] bg-green-900">Reset</Button>
       </div>
@@ -73,15 +70,15 @@ export default function Home() {
           <Table.HeadCell>Phone Number</Table.HeadCell>
         </Table.Head>
         <Table.Body className="divide-y">
-          {filteredAdvocates.map((advocate) => {
+          {advocates.map((advocate) => {
             return (
-              <Table.Row key={`adv_${advocate.phoneNumber}`} className="bg-white text-gray-900">
+              <Table.Row key={`adv_${advocate.id}`} className="bg-white text-gray-900">
               <Table.Cell>{advocate.firstName}</Table.Cell>
               <Table.Cell>{advocate.lastName}</Table.Cell>
               <Table.Cell>{advocate.city}</Table.Cell>
               <Table.Cell>{advocate.degree}</Table.Cell>
               <Table.Cell>{advocate.specialties.map((s, i) => (
-                    <div key={`adv_${advocate.phoneNumber}_spec_${i}`}>{s}</div>
+                    <div key={`adv_${advocate.id}_spec_${i}`}>{s}</div>
                   ))}
               </Table.Cell>
               <Table.Cell>{advocate.yearsOfExperience}</Table.Cell>
