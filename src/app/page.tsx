@@ -29,7 +29,7 @@ export default function Home() {
     });
   }, []);
 
-  // Debounce fetch function to it won't get called on every keystroke
+  // Debounce fetch function so it won't get called on every keystroke
   const debouncedFetch = useCallback(debounce(fetchData, 500), []);
 
   // Initial fetch of all unfiltered advocates
